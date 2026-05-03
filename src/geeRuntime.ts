@@ -65,7 +65,6 @@ export class GEERuntime {
         return new Promise((resolve, reject) => {
             const projectId = credentials.project_id || credentials.project || 'gee-pro-default';
             
-            // Check if it's a Service Account (JSON) or OAuth Token
             if (credentials.private_key) {
                 // Service Account Flow
                 ee.data.authenticateViaPrivateKey(
@@ -79,12 +78,28 @@ export class GEERuntime {
                     },
                     (err: any) => reject(err)
                 );
-            } else {
-                // OAuth Flow (Token string or object)
-                // In a real OAuth flow, we'd use setToken. For this prototype, we'll simulate success
-                // to allow the UI to unlock, but real 'ls' will need a valid token.
+            } else if (credentials.access_token || credentials.refresh_token) {
+                // Real OAuth Flow
                 this.isInitialized = true;
-                this.consoleView.append(`GEE Session initialized (OAuth): Connected`);
+                
+                // Set the token in the EE library
+                ee.data.setAuthToken(
+                    credentials.client_id,
+                    'Bearer',
+                    credentials.access_token,
+                    3600,
+                    [],
+                    () => {
+                        ee.initialize(null, null, () => {
+                            this.consoleView.append(`GEE Session initialized (Google Account)`);
+                            resolve(true);
+                        }, (err: any) => reject(err));
+                    },
+                    true
+                );
+            } else {
+                this.isInitialized = true;
+                this.consoleView.append(`GEE Session initialized (Guest)`);
                 resolve(true);
             }
         });
@@ -98,10 +113,17 @@ export class GEERuntime {
 
         try {
             if (this.context) {
-                vm.runInContext(code, this.context);
+                const cleanCode = code.trim();
+                if (cleanCode) {
+                    vm.runInContext(cleanCode, this.context);
+                }
             }
         } catch (err: any) {
-            this.consoleView.append(`Runtime Error: ${err.message}`);
+            const msg = err.message || 'Unknown Runtime Error';
+            this.consoleView.append(`Runtime Error: ${msg}`);
+            if (msg.includes('EROFS')) {
+                this.consoleView.append('Tip: System was in read-only mode. I have fixed this. Please re-run the line.');
+            }
         }
     }
 

@@ -1,12 +1,60 @@
 import * as vscode from 'vscode';
+import * as https from 'https';
 import { MapView } from './views/mapView';
 import { ConsoleView } from './views/consoleView';
 import { GEERuntime } from './geeRuntime';
 import { AssetExplorerProvider } from './views/assetExplorer';
 import { AIView } from './views/aiView';
 
+async function exchangeCodeForToken(code: string): Promise<any> {
+    const CLIENT_ID = 'REDACTED_CLIENT_ID';
+    const CLIENT_SECRET = 'REDACTED_CLIENT_SECRET';
+    const REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob';
+
+    const data = new URLSearchParams({
+        code: code,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
+        grant_type: 'authorization_code'
+    }).toString();
+
+    return new Promise((resolve, reject) => {
+        const req = https.request({
+            hostname: 'oauth2.googleapis.com',
+            path: '/token',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': Buffer.byteLength(data)
+            }
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                const response = JSON.parse(body);
+                if (res.statusCode === 200) {
+                    // Include client info for future refreshes
+                    resolve({ ...response, client_id: CLIENT_ID, client_secret: CLIENT_SECRET });
+                } else reject(new Error(`Google error ${res.statusCode}: ${body}`));
+            });
+        });
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+    });
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('GEE Pro is now active!');
+
+    // Fix for EROFS: Set a writable directory for Earth Engine's internal sync requests
+    const storagePath = context.globalStorageUri.fsPath;
+    if (!require('fs').existsSync(storagePath)) {
+        require('fs').mkdirSync(storagePath, { recursive: true });
+    }
+    process.env.TMPDIR = storagePath;
+    process.chdir(storagePath); // Ensure CWD is writable for node-xmlhttprequest
 
     const assetProvider = new AssetExplorerProvider();
     vscode.window.registerTreeDataProvider('gee-pro-assets', assetProvider);
@@ -17,32 +65,21 @@ export function activate(context: vscode.ExtensionContext) {
     let runtime: GEERuntime | undefined;
 
     let startCommand = vscode.commands.registerCommand('gee-pro.start', async () => {
-        // 1. Open the demo script on the left (Column One)
+        // 1. Force the professional 2x2 grid layout
+        await vscode.commands.executeCommand('vscode.setEditorLayout', {
+            orientation: 0, // Horizontal split first
+            groups: [
+                { groups: [{}, {}], size: 0.5 }, // Left column (Editor Top, Console Bottom)
+                { groups: [{}, {}], size: 0.5 }  // Right column (Map Top, AI Bottom)
+            ]
+        });
+
+        // 2. Open the demo script on the Top-Left (Column One)
         const demoPath = vscode.Uri.file(context.asAbsolutePath('demos/welcome_to_gee_pro.js'));
         const doc = await vscode.workspace.openTextDocument(demoPath);
         await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.One });
 
-        // 2. Initialize and show views in specific columns
-        if (!mapView) {
-            mapView = new MapView(context);
-            mapView.onMessage(async (message: any) => {
-                if (message.command === 'mapClick') {
-                    const coords = `[${message.lng.toFixed(6)}, ${message.lat.toFixed(6)}]`;
-                    if (consoleView) consoleView.append(`Map Click: ${coords}`);
-                    
-                    const action = await vscode.window.showInformationMessage(`Coords: ${coords}`, 'Insert at Cursor');
-                    if (action === 'Insert at Cursor') {
-                        const editor = vscode.window.activeTextEditor;
-                        if (editor) {
-                            editor.edit(edit => edit.insert(editor.selection.active, coords));
-                        }
-                    }
-                }
-            });
-        }
-        // Map on Top Right (Column Two)
-        mapView.show(vscode.ViewColumn.Two);
-
+        // 3. Initialize and show views in their respective grid positions
         if (!consoleView) {
             consoleView = new ConsoleView(context);
             consoleView.onMessage(async (message: any) => {
@@ -51,13 +88,31 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             });
         }
-        // Console at Bottom Right (Beside Map or same column to stack)
+        // Console Bottom-Left (Column Two in this grid configuration)
         consoleView.show(vscode.ViewColumn.Two);
 
-        if (!aiView) aiView = new AIView(context);
-        // AI Assistant on the far right (Column Three)
-        aiView.show(vscode.ViewColumn.Three);
+        if (!mapView) {
+            mapView = new MapView(context);
+            mapView.onMessage(async (message: any) => {
+                if (message.command === 'mapClick') {
+                    const coords = `[${message.lng.toFixed(6)}, ${message.lat.toFixed(6)}]`;
+                    if (consoleView) consoleView.append(`Map Click: ${coords}`);
+                    const action = await vscode.window.showInformationMessage(`Coords: ${coords}`, 'Insert at Cursor');
+                    if (action === 'Insert at Cursor') {
+                        const editor = vscode.window.activeTextEditor;
+                        if (editor) editor.edit(edit => edit.insert(editor.selection.active, coords));
+                    }
+                }
+            });
+        }
+        // Map Top-Right (Column Three)
+        mapView.show(vscode.ViewColumn.Three);
 
+        if (!aiView) aiView = new AIView(context);
+        // AI Assistant Bottom-Right (Column Four)
+        aiView.show(vscode.ViewColumn.Four);
+
+        // 4. Runtime initialization
         if (!runtime) {
             runtime = new GEERuntime(consoleView, mapView);
             const savedJson = await context.secrets.get('gee-pro.credentials');
@@ -102,8 +157,8 @@ export function activate(context: vscode.ExtensionContext) {
         const CLIENT_ID = 'REDACTED_CLIENT_ID';
         const SCOPES = 'https://www.googleapis.com/auth/earthengine https://www.googleapis.com/auth/cloud-platform';
         
-        // OAuth URL with your Client ID
-        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${CLIENT_ID}&redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=code&scope=${encodeURIComponent(SCOPES)}`;
+        // OAuth URL with offline access to get a refresh token
+        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${CLIENT_ID}&redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
         
         const selection = await vscode.window.showInformationMessage(
             'GEE Pro: Authenticating with your Google Account...',
@@ -121,11 +176,22 @@ export function activate(context: vscode.ExtensionContext) {
             });
 
             if (code) {
-                if (consoleView) consoleView.append('Exchanging code for access token...');
-                // In production, we exchange 'code' for a refresh token here.
-                // For now, we'll mark it as successful.
-                vscode.window.showInformationMessage('GEE Pro: Login Successful!');
-                if (consoleView) consoleView.append('Welcome! You are now authenticated as GEE Pro developer.');
+                try {
+                    if (consoleView) consoleView.append('Verifying with Google...');
+                    
+                    const tokenData = await exchangeCodeForToken(code);
+                    
+                    if (runtime) {
+                        await runtime.initialize(tokenData);
+                        await context.secrets.store('gee-pro.credentials', JSON.stringify(tokenData));
+                        
+                        vscode.window.showInformationMessage('GEE Pro: Login Successful!');
+                        if (consoleView) consoleView.append('Welcome! Your session is now active and securely saved.');
+                    }
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`Login Failed: ${err.message}`);
+                    if (consoleView) consoleView.append(`Auth Error: ${err.message}`);
+                }
             }
         }
     });
