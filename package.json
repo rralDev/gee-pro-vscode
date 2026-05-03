@@ -1,9 +1,9 @@
 {
-  "name": "gee-pro",
-  "displayName": "GEE Pro",
-  "description": "Professional Google Earth Engine Development Environment",
+  "name": "gee-pro-ide",
+  "displayName": "GEE Pro IDE",
+  "description": "Professional Google Earth Engine IDE for VS Code with integrated Map, Console, and AI Assistant.",
   "version": "0.1.0",
-  "publisher": "geepro-official",
+  "publisher": "LuisRobles",
   "icon": "media/logo.png",
   "engines": {
     "vscode": "^1.75.0"
@@ -96,6 +96,10 @@
         }
       ]
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rralDev/gee-pro-ide.git"
   },
   "scripts": {
     "compile": "tsc -p ./",

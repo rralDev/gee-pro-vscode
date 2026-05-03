@@ -1,8 +1,10 @@
-# GEE Pro: Google Earth Engine Professional IDE for VS Code
+# GEE Pro IDE: Google Earth Engine Professional IDE for VS Code
 
-![GEE Pro Logo](media/logo.png)
+<p align="center">
+  <img src="media/logo.png" width="128" alt="GEE Pro IDE Logo">
+</p>
 
-**GEE Pro** is a high-performance, local development environment for Google Earth Engine. Stop fighting with browser tabs and start coding like a pro with the full power of Visual Studio Code.
+**GEE Pro IDE** is a high-performance, local development environment for Google Earth Engine. Stop fighting with browser tabs and start coding like a pro with the full power of Visual Studio Code.
 
 ## 🚀 Key Features
 
