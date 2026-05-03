@@ -1,0 +1,10 @@
+node_modules/
+out/
+.vscode-test/
+*.vsix
+.gemini/
+*.json
+!package.json
+!tsconfig.json
+!media/*.json
+.DS_Store

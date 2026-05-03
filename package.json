@@ -1,0 +1,114 @@
+{
+  "name": "gee-pro",
+  "displayName": "GEE Pro",
+  "description": "Professional Google Earth Engine Development Environment",
+  "version": "0.1.0",
+  "publisher": "geepro-official",
+  "icon": "media/logo.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "google earth engine",
+    "gee",
+    "gis",
+    "remote sensing"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gee-pro.start",
+        "title": "Start Environment",
+        "category": "GEE Pro"
+      },
+      {
+        "command": "gee-pro.run",
+        "title": "Run Script",
+        "category": "GEE Pro",
+        "icon": "$(play)"
+      },
+      {
+        "command": "gee-pro.authenticate",
+        "title": "Authenticate (JSON)",
+        "category": "GEE Pro"
+      },
+      {
+        "command": "gee-pro.login",
+        "title": "Login with Google (Easy)",
+        "category": "GEE Pro"
+      },
+      {
+        "command": "gee-pro.runSelection",
+        "title": "Run Selection",
+        "category": "GEE Pro",
+        "icon": "$(play-circle)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "gee-pro.runSelection",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && resourceExtname == .js"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "gee-pro.run",
+          "when": "resourceExtname == .js",
+          "group": "navigation"
+        },
+        {
+          "command": "gee-pro.runSelection",
+          "when": "resourceExtname == .js",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gee-pro-sidebar",
+          "title": "GEE Pro",
+          "icon": "$(globe)"
+        }
+      ]
+    },
+    "views": {
+      "gee-pro-sidebar": [
+        {
+          "id": "gee-pro-assets",
+          "name": "Assets",
+          "type": "tree"
+        },
+        {
+          "id": "gee-pro-tasks",
+          "name": "Tasks",
+          "type": "tree"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node"
+  },
+  "devDependencies": {
+    "@types/node": "^16.18.126",
+    "@types/vscode": "^1.75.0",
+    "esbuild": "^0.17.11",
+    "typescript": "^4.9.3"
+  },
+  "dependencies": {
+    "@google/earthengine": "^0.1.350"
+  }
+}
