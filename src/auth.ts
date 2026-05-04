@@ -1,7 +1,6 @@
 import * as https from 'https';
 
-const CLIENT_ID = 'REDACTED_CLIENT_ID';
-const CLIENT_SECRET = 'REDACTED_CLIENT_SECRET';
+import { CLIENT_ID, CLIENT_SECRET } from './config';
 
 export async function exchangeCodeForToken(code: string): Promise<any> {
     const data = new URLSearchParams({

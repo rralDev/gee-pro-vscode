@@ -8,3 +8,4 @@ out/
 !tsconfig.json
 !media/*.json
 .DS_Store
+src/config.ts
